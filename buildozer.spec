@@ -28,3 +28,4 @@ warn_on_root = 1
 
 # Android NDK/SDK setup
 android.accept_sdk_license = True
+android.skip_update = False
