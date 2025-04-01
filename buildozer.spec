@@ -13,11 +13,10 @@ fullscreen = 0
 android.permissions = CAMERA,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 android.archs = arm64-v8a, armeabi-v7a
 
-# Uncomment these to explicitly specify the Android API level
+# Specify Android API level
 android.api = 33
 android.minapi = 21
-android.sdk = 33
-android.ndk = 26b
+android.ndk = 25b
 
 # Increased build timeout and more memory for Java
 android.gradle_parameters = -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxPermSize=512m -XX:+HeapDumpOnOutOfMemoryError" -Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.configureondemand=true
@@ -25,7 +24,3 @@ android.gradle_parameters = -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxPermSize=512m
 [buildozer]
 log_level = 2
 warn_on_root = 1
-
-# Android NDK/SDK setup
-android.accept_sdk_license = True
-android.skip_update = False
