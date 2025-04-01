@@ -2,3 +2,4 @@ kivy
 opencv-python
 numpy
 tensorflow-lite
+cython
