@@ -4,7 +4,7 @@ import zipfile
 import hashlib
 import argparse
 
-MODEL_URL = "https://github.com/TachibanaYoshino/AnimeGANv3/raw/master/assets/generator_lite.tflite"
+MODEL_URL = "https://github.com/TachibanaYoshino/AnimeGANv3/releases/download/v1.1.0/AnimeGANv3_Hayao_36.tflite"
 MODEL_HASH = "e5c8e63f55c67f51c346f49f762e13a448cea3e0bb7697a6cbfaa5b9eb6eb1fd"
 
 def download_file(url, output_path):
