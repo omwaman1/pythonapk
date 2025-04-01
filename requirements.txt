@@ -1,5 +1,4 @@
-kivy
-opencv-python
-numpy
-tensorflow-lite
-cython
+kivy==2.1.0
+numpy==1.22.4
+opencv-python==4.6.0.66
+tensorflow==2.9.1
