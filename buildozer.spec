@@ -2,7 +2,9 @@
 title = Anime Converter
 package.name = anime_converter
 package.domain = org.example
+source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
+version = 1.0
 requirements = python3,kivy,opencv-python,numpy,tensorflow-lite
 android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 android.api = 31
