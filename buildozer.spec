@@ -1,19 +1,18 @@
 [app]
-title = Anime Converter
-package.name = anime_converter
-package.domain = org.example
+title = AnimeGAN Video Converter
+package.name = animegan_converter
+package.domain = org.animegan
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas
-version = 1.0
-requirements = python3,kivy,opencv-python,numpy,tensorflow-lite
-android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
-android.api = 31
-android.ndk = 23b
-android.arch = arm64-v8a, armeabi-v7a
-p4a.branch = stable
-android.minapi = 21
-android.sdk = 31
-android.gradle_dependencies = "androidx.appcompat:appcompat:1.2.0"
-android.ndk_path = $HOME/.android/ndk/23b
-fullscreen = 1
+source.include_exts = py,png,jpg,kv,atlas,tflite
+version = 0.1
+requirements = python3,kivy,numpy,opencv,tensorflow
 orientation = portrait
+osx.python_version = 3
+osx.kivy_version = 2.1.0
+fullscreen = 0
+android.permissions = CAMERA,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
+android.arch = arm64-v8a
+
+[buildozer]
+log_level = 2
+warn_on_root = 1
