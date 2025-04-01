@@ -19,52 +19,58 @@ jobs:
       with:
         python-version: '3.9'
     
-    - name: Install Android SDK tools
+    - name: Install system dependencies
       run: |
-        mkdir -p $HOME/android-sdk
-        cd $HOME/android-sdk
-        
-        # Download command line tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-        
-        # Set up environment
-        export ANDROID_HOME=$HOME/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/bin
-        
-        # Accept licenses and install required components
-        mkdir -p $ANDROID_HOME/licenses
-        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_HOME/licenses/android-sdk-license
-        
-        # Create a tools directory and move contents there to match newer SDK structure
-        mkdir -p $ANDROID_HOME/cmdline-tools/tools
-        mv $ANDROID_HOME/cmdline-tools/bin $ANDROID_HOME/cmdline-tools/tools/
-        mv $ANDROID_HOME/cmdline-tools/lib $ANDROID_HOME/cmdline-tools/tools/
-        
-        # Install SDK components including build-tools which has aidl
-        cd $ANDROID_HOME/cmdline-tools/tools/bin
-        ./sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "build-tools;33.0.2" "platforms;android-33" "ndk;26.1.10909125"
-        
-        # Add to PATH for buildozer to find
-        echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-        echo "$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2" >> $GITHUB_PATH
-    
-    - name: Install dependencies
-      run: |
-        pip install buildozer==1.5.0
-        pip install cython==0.29.33
         sudo apt-get update
         sudo apt-get install -y python3-pip build-essential git python3 python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev zlib1g-dev
         sudo apt-get install -y libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
         sudo apt-get install -y build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblzma-dev libreadline-dev libncursesw5-dev libffi-dev uuid-dev
-        sudo apt-get install -y libffi-dev openjdk-17-jdk
+        sudo apt-get install -y libffi-dev openjdk-17-jdk autoconf
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+      
+    - name: Install AIDL explicitly
+      run: |
+        # Create directories for buildozer to find
+        mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools/
+        
+        # Copy Android build tools to the location buildozer expects
+        LATEST_BUILD_TOOLS=$(ls $ANDROID_SDK_ROOT/build-tools/ | sort -V | tail -n 1)
+        echo "Using build tools version: $LATEST_BUILD_TOOLS"
+        
+        cp -r $ANDROID_SDK_ROOT/build-tools/$LATEST_BUILD_TOOLS ~/.buildozer/android/platform/android-sdk/build-tools/
+        
+        # Create symlinks to AIDL and other required tools
+        mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools/aidl/
+        ln -s $ANDROID_SDK_ROOT/build-tools/$LATEST_BUILD_TOOLS/aidl ~/.buildozer/android/platform/android-sdk/build-tools/aidl/aidl
+
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install buildozer==1.5.0
+        pip install cython==0.29.33
+        pip install --upgrade https://github.com/kivy/python-for-android/archive/master.zip
     
     - name: Download and verify model
       run: |
         python download_model.py
     
+    - name: Update buildozer.spec
+      run: |
+        # Remove the android.sdk line that's causing warnings
+        sed -i '/^android.sdk/d' buildozer.spec
+        
+        # Update android.archs to use the correct syntax
+        sed -i 's/android.arch = arm64-v8a/android.archs = arm64-v8a, armeabi-v7a/g' buildozer.spec
+        
+        # Add line to explicitly accept SDK license
+        echo "android.accept_sdk_license = True" >> buildozer.spec
+    
     - name: Build with Buildozer
       run: |
+        export PATH=$ANDROID_SDK_ROOT/build-tools/$LATEST_BUILD_TOOLS:$PATH
+        export BUILDOZER_VERBOSE=1
         buildozer android debug
     
     - name: Upload APK as artifact
