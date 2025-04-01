@@ -18,84 +18,91 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-pip build-essential git python3 python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev zlib1g-dev
-        sudo apt-get install -y libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
-        sudo apt-get install -y build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblzma-dev libreadline-dev libncursesw5-dev libffi-dev uuid-dev
-        sudo apt-get install -y libffi-dev openjdk-17-jdk autoconf
+        sudo apt-get install -y \
+          python3-pip build-essential git python3 python3-dev \
+          ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+          libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev zlib1g-dev \
+          libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+          build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev \
+          libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblzma-dev \
+          libreadline-dev libncursesw5-dev libffi-dev uuid-dev \
+          libffi-dev openjdk-17-jdk autoconf \
+          lld cmake ninja-build
     
     - name: Setup Android SDK
       uses: android-actions/setup-android@v2
-      
-    - name: Install cmdline-tools and fix SDK Manager
+    
+    - name: Install Android NDK
       run: |
-        # Download and extract cmdline-tools which include sdkmanager
-        mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip commandlinetools-linux-9477386_latest.zip
-        mv cmdline-tools/* ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/
+        mkdir -p ~/.buildozer/android/platform
+        echo "y" | sdkmanager "ndk;25.1.8937393"
+        ln -sf ${ANDROID_SDK_ROOT}/ndk/25.1.8937393 ~/.buildozer/android/platform/android-ndk-r25b
+    
+    - name: Install Cython and Buildozer
+      run: |
+        pip install --upgrade pip wheel setuptools
+        pip install cython==0.29.33
+        pip install buildozer==1.5.0
+    
+    - name: Install specific python-for-android
+      run: |
+        # Install a specific version of python-for-android that works with recent NDK
+        pip install git+https://github.com/kivy/python-for-android.git@develop
+    
+    - name: Setup Buildozer directory structure
+      run: |
+        mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin/
         
-        # Create the tools/bin directory and symlink sdkmanager for buildozer
-        mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin
-        ln -s ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
+        # Create a local.properties file
+        echo "sdk.dir=${ANDROID_SDK_ROOT}" > local.properties
         
-        # Make sure buildozer can find the Android SDK
-        echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+        # Symlink sdkmanager
+        ln -sf ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
         
         # Accept licenses
-        yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-    
-    - name: Install AIDL explicitly
-      run: |
-        # Create directories for buildozer to find
-        mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools/
-        
-        # Copy Android build tools to the location buildozer expects
-        LATEST_BUILD_TOOLS=$(ls $ANDROID_SDK_ROOT/build-tools/ | sort -V | tail -n 1)
-        echo "Using build tools version: $LATEST_BUILD_TOOLS"
-        
-        cp -r $ANDROID_SDK_ROOT/build-tools/$LATEST_BUILD_TOOLS ~/.buildozer/android/platform/android-sdk/build-tools/
-        
-        # Create symlinks to AIDL and other required tools
-        mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools/aidl/
-        ln -s $ANDROID_SDK_ROOT/build-tools/$LATEST_BUILD_TOOLS/aidl ~/.buildozer/android/platform/android-sdk/build-tools/aidl/aidl
-    
-    - name: Install Python dependencies
-      run: |
-        pip install --upgrade pip
-        pip install buildozer==1.5.0
-        pip install cython==0.29.33
-        pip install --upgrade https://github.com/kivy/python-for-android/archive/master.zip
+        yes | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --licenses
     
     - name: Download and verify model
       run: |
         python download_model.py
     
-    - name: Update buildozer.spec
+    - name: Modify dependencies in buildozer.spec
       run: |
-        # Remove the android.sdk line that's causing warnings
+        # Remove the android.sdk line
         sed -i '/^android.sdk/d' buildozer.spec
         
-        # Update android.archs to use the correct syntax
+        # Update architecture setting
         sed -i 's/android.arch = arm64-v8a/android.archs = arm64-v8a, armeabi-v7a/g' buildozer.spec
         
-        # Add line to explicitly accept SDK license and point to SDK location
+        # Fix requirements - break up complex tensorflow requirement
+        sed -i 's/requirements = python3,kivy,numpy,opencv,tensorflow/requirements = python3,kivy,numpy,opencv-python,tensorflow-lite/g' buildozer.spec
+        
+        # Add specific version for numpy to avoid compatibility issues
+        sed -i 's/numpy/numpy==1.23.5/g' buildozer.spec
+        
+        # Add license acceptance
         echo "android.accept_sdk_license = True" >> buildozer.spec
-        echo "android.sdk_path = ~/.buildozer/android/platform/android-sdk" >> buildozer.spec
+        
+        # Set NDK version explicitly
+        echo "android.ndk_path = ~/.buildozer/android/platform/android-ndk-r25b" >> buildozer.spec
+        echo "android.sdk_path = ${ANDROID_SDK_ROOT}" >> buildozer.spec
+        
+        # Increase log level for detailed debugging
+        sed -i 's/log_level = 2/log_level = 2/g' buildozer.spec
+        
+        # Add Java options to avoid memory issues
+        echo "java_build_tool = gradle" >> buildozer.spec
     
     - name: Build with Buildozer
       run: |
-        export PATH=$ANDROID_SDK_ROOT/build-tools/$LATEST_BUILD_TOOLS:$PATH
-        export BUILDOZER_VERBOSE=1
-        buildozer android debug
+        export PATH=${ANDROID_SDK_ROOT}/build-tools/*/bin:$PATH
+        export PYTHONPATH=$PYTHONPATH:$(pwd)
+        export USE_SDK_WRAPPER=1
+        buildozer -v android debug
     
     - name: Upload APK as artifact
-      run: |
-        mkdir -p ./artifacts
-        cp bin/*.apk ./artifacts/ || echo "No APK found, check build logs"
-        
-    - name: Archive APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: ./artifacts/*.apk
+        path: bin/*.apk
         if-no-files-found: warn
